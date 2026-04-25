@@ -12,7 +12,7 @@
  */
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BRAINHISTORY_URL = "https://brainhistory.app"; // TODO: update before publishing
+const BRAINHISTORY_URL = "http://localhost:3000"; // TODO: update before publishing
 
 // ─── State machine ────────────────────────────────────────────────────────────
 const STATES = ["loading", "unsaveable", "auth", "form", "saved", "error"];

@@ -18,6 +18,7 @@ import connectDB from "@/lib/db/mongoose";
 import { User } from "@/models";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     GoogleProvider({
       clientId:     process.env.GOOGLE_CLIENT_ID     ?? "",
