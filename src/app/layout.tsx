@@ -26,6 +26,9 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "BrainHistory",
   description: "Save anything. Find it later with AI.",
+  verification: {
+    google: "vGUAIyQSb3MrRePVtRnqOYJ6qvxiXNNoXYAgfXcep9Y",
+  },
 };
 
 export default async function RootLayout({

@@ -12,7 +12,7 @@
  */
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const BRAINHISTORY_URL = "http://localhost:3000"; // TODO: update before publishing
+const BRAINHISTORY_URL = "https://brain-history-2.onrender.com/"; // TODO: update before publishing
 
 // ─── State machine ────────────────────────────────────────────────────────────
 const STATES = ["loading", "unsaveable", "auth", "form", "saved", "error"];
@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Open app buttons
   const openApp = () => { chrome.tabs.create({ url: BRAINHISTORY_URL }); window.close(); };
-  const openSignin = () => { chrome.tabs.create({ url: BRAINHISTORY_URL + "/login" }); window.close(); };
+  const openSignin = () => { chrome.tabs.create({ url: BRAINHISTORY_URL + "/auth/signin" }); window.close(); };
   const openLibrary = () => { chrome.tabs.create({ url: BRAINHISTORY_URL + "/dashboard" }); window.close(); };
 
   $("open-app-btn")?.addEventListener("click", openApp);
