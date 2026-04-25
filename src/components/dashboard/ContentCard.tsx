@@ -1,0 +1,657 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { api, type ContentItem, type CollectionItem } from "@/lib/api-client";
+import DeleteModal from "@/components/ui/DeleteModal";
+
+const TYPE_CONFIG: Record<string, { emoji: string; light: string; dark: string; grad: string }> = {
+  tweet:         { emoji: "𝕏",  light: "bg-sky-50 text-sky-600 border-sky-100",            dark: "dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20",       grad: "from-sky-500/20 via-sky-400/10 to-transparent dark:from-sky-500/15" },
+  youtube_video: { emoji: "▶",  light: "bg-red-50 text-red-600 border-red-100",             dark: "dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",        grad: "from-red-500/20 via-red-400/10 to-transparent dark:from-red-500/15" },
+  youtube_music: { emoji: "♪",  light: "bg-red-50 text-red-600 border-red-100",             dark: "dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",        grad: "from-red-500/20 via-red-400/10 to-transparent dark:from-red-500/15" },
+  instagram:     { emoji: "◈",  light: "bg-pink-50 text-pink-600 border-pink-100",          dark: "dark:bg-pink-500/10 dark:text-pink-400 dark:border-pink-500/20",     grad: "from-pink-500/20 via-pink-400/10 to-transparent dark:from-pink-500/15" },
+  blog:          { emoji: "✦",  light: "bg-emerald-50 text-emerald-700 border-emerald-100", dark: "dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20", grad: "from-emerald-500/20 via-emerald-400/10 to-transparent dark:from-emerald-500/15" },
+  pdf:           { emoji: "⬛", light: "bg-orange-50 text-orange-600 border-orange-100",    dark: "dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20", grad: "from-orange-500/20 via-orange-400/10 to-transparent dark:from-orange-500/15" },
+  image:         { emoji: "⬡",  light: "bg-violet-50 text-violet-700 border-violet-100",    dark: "dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20", grad: "from-violet-500/20 via-violet-400/10 to-transparent dark:from-violet-500/15" },
+  screenshot:    { emoji: "⬡",  light: "bg-violet-50 text-violet-700 border-violet-100",    dark: "dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20", grad: "from-violet-500/20 via-violet-400/10 to-transparent dark:from-violet-500/15" },
+  website:       { emoji: "◉",  light: "bg-blue-50 text-blue-700 border-blue-100",          dark: "dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",     grad: "from-blue-500/20 via-blue-400/10 to-transparent dark:from-blue-500/15" },
+  github:        { emoji: "⊛",  light: "bg-zinc-100 text-zinc-700 border-zinc-200",         dark: "dark:bg-zinc-700/30 dark:text-zinc-300 dark:border-zinc-600/30",     grad: "from-zinc-400/20 via-zinc-300/10 to-transparent dark:from-zinc-400/15" },
+  reddit:        { emoji: "◎",  light: "bg-orange-50 text-orange-600 border-orange-100",    dark: "dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20", grad: "from-orange-500/20 via-orange-400/10 to-transparent dark:from-orange-500/15" },
+  linkedin:      { emoji: "in", light: "bg-blue-50 text-blue-700 border-blue-100",          dark: "dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",     grad: "from-blue-500/20 via-blue-400/10 to-transparent dark:from-blue-500/15" },
+  spotify:       { emoji: "♫",  light: "bg-green-50 text-green-700 border-green-100",       dark: "dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20",  grad: "from-green-500/20 via-green-400/10 to-transparent dark:from-green-500/15" },
+  audio:         { emoji: "♫",  light: "bg-green-50 text-green-700 border-green-100",       dark: "dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20",  grad: "from-green-500/20 via-green-400/10 to-transparent dark:from-green-500/15" },
+  video:         { emoji: "▶",  light: "bg-red-50 text-red-600 border-red-100",             dark: "dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",        grad: "from-red-500/20 via-red-400/10 to-transparent dark:from-red-500/15" },
+  note:          { emoji: "✎",  light: "bg-amber-50 text-amber-700 border-amber-100",        dark: "dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20",   grad: "from-amber-500/20 via-amber-400/10 to-transparent dark:from-amber-500/15" },
+  unknown:       { emoji: "◇",  light: "bg-zinc-100 text-zinc-600 border-zinc-200",         dark: "dark:bg-zinc-700/30 dark:text-zinc-400 dark:border-zinc-600/30",     grad: "from-zinc-400/20 via-zinc-300/10 to-transparent dark:from-zinc-400/15" },
+};
+
+const STATUS_CONFIG = {
+  pending:    { dot: "bg-amber-400 animate-pulse",  badge: "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20" },
+  processing: { dot: "bg-blue-400 animate-pulse",   badge: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20" },
+  completed:  { dot: "bg-emerald-400",              badge: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" },
+  failed:     { dot: "bg-zinc-400",                 badge: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700" },
+} as const;
+
+// Type-specific large icons for placeholder banners
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  pdf: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6M9 17h4M13 3v5a1 1 0 001 1h5"/>
+    </svg>
+  ),
+  youtube_video: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor">
+      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+    </svg>
+  ),
+  youtube_music: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor">
+      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+    </svg>
+  ),
+  spotify: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor">
+      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+    </svg>
+  ),
+  audio: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+    </svg>
+  ),
+  video: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+    </svg>
+  ),
+  note: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+    </svg>
+  ),
+  github: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor">
+      <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+    </svg>
+  ),
+  image: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+  ),
+  blog: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+    </svg>
+  ),
+  website: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+    </svg>
+  ),
+  tweet: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  ),
+  reddit: (
+    <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor">
+      <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+    </svg>
+  ),
+};
+
+// ─── Type-specific gradient thumbnail backgrounds ────────────────────────────
+type OverlayKind = "icon" | "note" | "tweet" | "waveform";
+const TYPE_THUMB: Record<string, { bg: string; overlay: OverlayKind }> = {
+  youtube_video: { bg: "linear-gradient(135deg, #1a0b2e, #5b21b6 50%, #be185d)",  overlay: "icon"     },
+  youtube_music: { bg: "linear-gradient(135deg, #1a0b2e, #5b21b6 50%, #be185d)",  overlay: "waveform" },
+  pdf:           { bg: "linear-gradient(135deg, #7c2d12, #ea580c 50%, #fb923c)",   overlay: "icon"     },
+  spotify:       { bg: "linear-gradient(135deg, #064e3b, #059669 60%, #10b981)",   overlay: "waveform" },
+  audio:         { bg: "linear-gradient(135deg, #064e3b, #059669 60%, #10b981)",   overlay: "waveform" },
+  video:         { bg: "linear-gradient(135deg, #1a0b2e, #7c3aed 50%, #be185d)",   overlay: "icon"     },
+  blog:          { bg: "linear-gradient(135deg, #0c4a6e, #0284c7 50%, #38bdf8)",   overlay: "icon"     },
+  website:       { bg: "linear-gradient(135deg, #0c2a6e, #1e3a8a 50%, #3b82f6)",   overlay: "icon"     },
+  note:          { bg: "linear-gradient(135deg, #1e1b4b, #4c1d95 50%, #7c3aed)",   overlay: "note"     },
+  github:        { bg: "linear-gradient(135deg, #0a0a0a, #27272a 50%, #3f3f46)",   overlay: "icon"     },
+  tweet:         { bg: "linear-gradient(135deg, #0c4a6e, #155e75 50%, #0891b2)",   overlay: "tweet"    },
+  instagram:     { bg: "linear-gradient(135deg, #7c1d5e, #be185d 50%, #f59e0b)",   overlay: "icon"     },
+  reddit:        { bg: "linear-gradient(135deg, #7c1d12, #dc2626 50%, #f97316)",   overlay: "icon"     },
+  linkedin:      { bg: "linear-gradient(135deg, #0c3a6e, #0369a1 50%, #0891b2)",   overlay: "icon"     },
+  image:         { bg: "linear-gradient(135deg, #831843, #be185d 50%, #ec4899)",   overlay: "icon"     },
+  screenshot:    { bg: "linear-gradient(135deg, #831843, #be185d 50%, #ec4899)",   overlay: "icon"     },
+  unknown:       { bg: "linear-gradient(135deg, #0a0a0a, #27272a 50%, #3f3f46)",   overlay: "icon"     },
+};
+// Waveform bar heights (18 bars) — gives an organic audio-waveform look
+const WAVE_HEIGHTS = [30,70,50,90,60,40,85,55,75,45,65,35,80,50,70,40,60,85];
+
+// ─── Helper: resolve inline-playable info for a content item ─────────────────
+type PlayInfo = { type: "youtube" | "spotify" | "audio" | "video"; embedUrl: string };
+
+function getPlayableInfo(item: ContentItem): PlayInfo | null {
+  const ct = item.contentType;
+
+  if (ct === "youtube_video" || ct === "youtube_music") {
+    try {
+      const u = new URL(item.url);
+      let videoId: string | null = null;
+      if (u.hostname.includes("youtube.com")) videoId = u.searchParams.get("v");
+      else if (u.hostname === "youtu.be")     videoId = u.pathname.slice(1).split("?")[0];
+      if (videoId) return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1` };
+    } catch { /* ignore */ }
+  }
+
+  if (ct === "spotify") {
+    try {
+      const u = new URL(item.url);
+      if (u.hostname === "open.spotify.com") {
+        const parts = u.pathname.split("/").filter(Boolean);
+        if (
+          parts.length >= 2 &&
+          ["track", "album", "playlist", "episode", "show"].includes(parts[0])
+        ) {
+          return {
+            type: "spotify",
+            embedUrl: `https://open.spotify.com/embed/${parts[0]}/${parts[1]}?utm_source=generator&theme=0`,
+          };
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (ct === "audio" && item.fileUrl) return { type: "audio",   embedUrl: item.fileUrl };
+  if (ct === "video" && item.fileUrl) return { type: "video",   embedUrl: item.fileUrl };
+
+  return null;
+}
+
+interface Props {
+  item:      ContentItem;
+  onDeleted: (id: string) => void;
+  onUpdated: (item: ContentItem) => void;
+  // Bulk selection
+  selectMode?: boolean;
+  selected?:   boolean;
+  onSelect?:   (id: string) => void;
+  // Collections — pass the user's list so the picker can show them
+  collections?: CollectionItem[];
+}
+
+export default function ContentCard({
+  item, onDeleted, onUpdated,
+  selectMode, selected, onSelect,
+  collections,
+}: Props) {
+  const [deleting,        setDeleting]        = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [favLoading,      setFavLoading]      = useState(false);
+  const [isPlaying,       setIsPlaying]       = useState(false);
+  const [showColPicker,   setShowColPicker]   = useState(false);
+  const [colLoading,      setColLoading]      = useState<string | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Close collection picker when clicking outside
+  useEffect(() => {
+    if (!showColPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowColPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showColPicker]);
+
+  // Toggle collection membership and update item in parent
+  const handleCollectionToggle = async (colId: string, add: boolean) => {
+    setColLoading(colId);
+    try {
+      const res = add
+        ? await api.addToCollection(colId, item._id)
+        : await api.removeFromCollection(colId, item._id);
+      onUpdated({ ...item, collectionIds: res.collectionIds });
+    } catch { /* silent */ } finally {
+      setColLoading(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
+    try {
+      await api.deleteContent(item._id);
+      onDeleted(item._id);
+    } catch {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleFavourite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (favLoading) return;
+    setFavLoading(true);
+    try {
+      const res = await api.toggleFavourite(item._id);
+      onUpdated({ ...item, isFavourite: res.isFavourite });
+    } catch {
+      alert("Could not update favourite.");
+    } finally {
+      setFavLoading(false);
+    }
+  };
+
+  const playInfo   = getPlayableInfo(item);
+  const isUploaded = item.platform === "upload";
+
+  const URL_DOWNLOADABLE = ["image", "screenshot", "pdf"];
+  const canDownloadUrl = !isUploaded && URL_DOWNLOADABLE.includes(item.contentType);
+  const downloadHref = isUploaded && item.fileUrl
+    ? `/api/files/${item._id}?download`
+    : canDownloadUrl
+      ? `/api/download?url=${encodeURIComponent(item.url)}&filename=${encodeURIComponent(item.title)}`
+      : null;
+
+  const tc = TYPE_CONFIG[item.contentType] ?? TYPE_CONFIG.unknown;
+  const sc = STATUS_CONFIG[item.processingStatus] ?? STATUS_CONFIG.completed;
+  const tt = TYPE_THUMB[item.contentType] ?? TYPE_THUMB.unknown;
+
+  const domain = isUploaded
+    ? "Uploaded file"
+    : (() => { try { return new URL(item.url).hostname.replace(/^www\./, ""); } catch { return item.url; } })();
+  const dateStr = new Date(item.savedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+  const placeholderIcon = TYPE_ICON[item.contentType] ?? TYPE_ICON.blog;
+
+  return (
+    <>
+    {showDeleteModal && (
+      <DeleteModal
+        title={item.title}
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+    )}
+
+    <div
+      className={`card-accent relative group flex flex-col rounded-2xl bg-white dark:bg-[#16161D] border overflow-hidden shadow-sm transition-all duration-200 ${
+        deleting ? "opacity-40 pointer-events-none" : ""
+      } ${
+        selectMode
+          ? selected
+            ? "border-violet-500 dark:border-violet-400 ring-2 ring-violet-500/30 dark:ring-violet-400/30 cursor-pointer"
+            : "border-zinc-200 dark:border-white/[0.08] cursor-pointer hover:border-violet-300 dark:hover:border-violet-600"
+          : "border-zinc-100 dark:border-white/[0.06] hover:shadow-md dark:hover:shadow-black/50 hover:-translate-y-0.5"
+      }`}
+      onClick={selectMode ? () => onSelect?.(item._id) : undefined}
+    >
+      {/* Selection checkbox — visible in selectMode */}
+      {selectMode && (
+        <div className={`absolute top-2.5 left-2.5 z-40 h-5 w-5 rounded-full border-2 flex items-center justify-center pointer-events-none transition-all ${
+          selected
+            ? "bg-violet-600 border-violet-600"
+            : "bg-white/90 dark:bg-zinc-900/90 border-zinc-300 dark:border-zinc-500"
+        }`}>
+          {selected && <CheckIcon className="h-3 w-3 text-white" />}
+        </div>
+      )}
+
+      {/* Favourite button — z-20 so it sits above the play overlay */}
+      <button
+        onClick={handleFavourite}
+        disabled={favLoading}
+        title={item.isFavourite ? "Remove from favourites" : "Add to favourites"}
+        className="absolute top-2.5 right-2.5 z-20 p-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border border-zinc-100 dark:border-zinc-700 shadow-sm hover:scale-110 transition-transform disabled:opacity-50"
+      >
+        <StarIcon filled={item.isFavourite} className={`h-3.5 w-3.5 ${item.isFavourite ? "text-amber-400" : "text-zinc-300 dark:text-zinc-600"}`} />
+      </button>
+
+      {/* ── Banner area: inline player OR thumbnail/placeholder with play overlay ── */}
+      <div className="relative">
+        {/* Glass type badge — top-left overlay, hidden in select/play mode */}
+        {!isPlaying && !selectMode && (
+          <div className="absolute top-2.5 left-2.5 z-20 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold backdrop-blur-sm bg-black/40 dark:bg-black/60 border border-white/20 text-white pointer-events-none">
+            <span className="text-[11px] leading-none">{tc.emoji}</span>
+            <span className="capitalize">{item.contentType.replace(/_/g, " ")}</span>
+          </div>
+        )}
+        {isPlaying && playInfo ? (
+          /* ── Inline player ── */
+          <div className="relative w-full bg-black">
+            {/* Close button — left side, opposite the favourite button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsPlaying(false); }}
+              className="absolute top-1.5 left-1.5 z-10 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+              title="Close player"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+
+            {playInfo.type === "youtube" && (
+              <div className="aspect-video w-full">
+                <iframe
+                  src={playInfo.embedUrl}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+
+            {playInfo.type === "spotify" && (
+              <iframe
+                src={playInfo.embedUrl}
+                height="152"
+                className="w-full block"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                style={{ background: "#000" }}
+              />
+            )}
+
+            {playInfo.type === "audio" && (
+              <div className="flex items-center justify-center px-4 h-20 bg-zinc-900">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <audio controls autoPlay className="w-full" src={playInfo.embedUrl} />
+              </div>
+            )}
+
+            {playInfo.type === "video" && (
+              <div className="aspect-video w-full">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video controls autoPlay className="w-full h-full bg-black" src={playInfo.embedUrl} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Thumbnail or type-specific gradient banner */}
+            {item.thumbnail ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.thumbnail} alt="" className="w-full h-36 object-cover" />
+            ) : (
+              <div className="w-full h-36 relative overflow-hidden" style={{ background: tt.bg }}>
+                {/* Bottom scrim */}
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20 pointer-events-none" />
+
+                {/* Overlay: centered type icon */}
+                {tt.overlay === "icon" && (
+                  <div className="absolute inset-0 flex items-center justify-center text-white/90">
+                    {placeholderIcon}
+                  </div>
+                )}
+
+                {/* Overlay: note lines preview */}
+                {tt.overlay === "note" && (
+                  <div className="absolute inset-4 flex flex-col gap-1.5 justify-center">
+                    <div className="h-[6px] w-3/5 rounded-sm bg-white/50" />
+                    <div className="mt-1 h-[3px] w-full rounded-sm bg-white/25" />
+                    <div className="h-[3px] w-[90%] rounded-sm bg-white/25" />
+                    <div className="h-[3px] w-4/5 rounded-sm bg-white/25" />
+                    <div className="h-[3px] w-[88%] rounded-sm bg-white/25" />
+                    <div className="h-[3px] w-1/2 rounded-sm bg-white/25" />
+                  </div>
+                )}
+
+                {/* Overlay: tweet text preview */}
+                {tt.overlay === "tweet" && (
+                  <div className="absolute inset-0 flex flex-col justify-between p-3.5 text-white">
+                    <span className="text-[11px] font-mono font-medium text-white/60">@{domain}</span>
+                    <p className="font-display italic text-[13px] leading-snug text-white/90 line-clamp-3">
+                      {item.title}
+                    </p>
+                  </div>
+                )}
+
+                {/* Overlay: animated waveform + faded icon */}
+                {tt.overlay === "waveform" && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center text-white/50">
+                      {placeholderIcon}
+                    </div>
+                    <div className="absolute bottom-3 left-3 right-3 flex items-end gap-[2px] h-7 z-10">
+                      {WAVE_HEIGHTS.map((h, i) => (
+                        <span
+                          key={i}
+                          className="flex-1 rounded-[2px] bg-white/70"
+                          style={{
+                            height: `${h}%`,
+                            animation: "wave 1.8s ease-in-out infinite",
+                            animationDelay: `${i * 0.1}s`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Play overlay — hidden at rest, revealed on card hover */}
+            {playInfo && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsPlaying(true); }}
+                className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                title="Play"
+                aria-label="Play inline"
+              >
+                {/* Dark scrim so the circle pops against any banner colour */}
+                <div className="absolute inset-0 bg-black/30" />
+                <div className="relative h-12 w-12 rounded-full bg-black/60 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:scale-110 transition-transform duration-150 shadow-lg">
+                  <PlayIcon className="h-5 w-5 text-white ml-0.5" />
+                </div>
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col flex-1 p-4 gap-3">
+        {/* Title */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
+            {item.title}
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500 truncate">{domain}</p>
+        </div>
+
+        {/* Badges */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {item.processingStatus !== "completed" && (
+            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border ${sc.badge}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+              {item.processingStatus === "failed" ? "Original" : item.processingStatus}
+            </span>
+          )}
+          {item.processingStatus === "completed" && (item.embeddingsCount ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20">
+              <SparklesIcon className="h-2.5 w-2.5" />
+              AI ready
+            </span>
+          )}
+          {item.contentSize === "large" && item.processingStatus === "completed" && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
+              <ChatBubbleIcon className="h-2.5 w-2.5" />
+              Chat ready
+            </span>
+          )}
+        </div>
+
+        {/* Date + actions */}
+        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-white/[0.06]">
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">{dateStr}</span>
+          <div className="flex items-center gap-0.5">
+            {!isUploaded && item.contentType !== "note" && (
+              <a href={item.url} target="_blank" rel="noopener noreferrer"
+                className="p-1.5 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                title="Open original">
+                <ExternalLinkIcon className="h-3.5 w-3.5" />
+              </a>
+            )}
+            <Link href={`/content/${item._id}`}
+              className="p-1.5 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+              title="View">
+              <EyeIcon className="h-3.5 w-3.5" />
+            </Link>
+            {downloadHref && (
+              <a href={downloadHref}
+                className="p-1.5 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                title="Download">
+                <DownloadIcon className="h-3.5 w-3.5" />
+              </a>
+            )}
+            {item.contentSize === "large" && item.processingStatus === "completed" && (
+              <Link href={`/content/${item._id}/chat`}
+                className="p-1.5 rounded-lg text-violet-500 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                title="Chat">
+                <ChatIcon className="h-3.5 w-3.5" />
+              </Link>
+            )}
+            {!selectMode && collections && (
+              <div className="relative" ref={pickerRef}>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowColPicker((v) => !v); }}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    (item.collectionIds?.length ?? 0) > 0
+                      ? "text-violet-500 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                      : "text-zinc-400 dark:text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+                  }`}
+                  title="Add to collection"
+                >
+                  <FolderIcon className="h-3.5 w-3.5" />
+                </button>
+                {showColPicker && (
+                  <CollectionPickerDropdown
+                    contentId={item._id}
+                    collectionIds={item.collectionIds ?? []}
+                    collections={collections}
+                    colLoading={colLoading}
+                    onToggle={handleCollectionToggle}
+                  />
+                )}
+              </div>
+            )}
+            {!selectMode && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="p-1.5 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+              title="Delete">
+              <TrashIcon className="h-3.5 w-3.5" />
+            </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+    </>
+  );
+}
+
+function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
+  return filled ? (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+  ) : (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+  );
+}
+function PlayIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>;
+}
+function XIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>;
+}
+function ExternalLinkIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>;
+}
+function EyeIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>;
+}
+function DownloadIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>;
+}
+function ChatIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>;
+}
+function TrashIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>;
+}
+function CheckIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>;
+}
+// Modern "add to collection" icon — stacked rectangles with a plus
+function FolderIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.25 2.25 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122" />
+    </svg>
+  );
+}
+
+function CollectionIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.25 2.25 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122" /></svg>;
+}
+function SparklesIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" /></svg>;
+}
+function ChatBubbleIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>;
+}
+
+// ─── Collection picker dropdown ───────────────────────────────────────────────
+
+function CollectionPickerDropdown({
+  contentId, collectionIds, collections, colLoading, onToggle,
+}: {
+  contentId:     string;
+  collectionIds: string[];
+  collections:   CollectionItem[];
+  colLoading:    string | null;
+  onToggle:      (colId: string, add: boolean) => void;
+}) {
+  if (collections.length === 0) {
+    return (
+      <div className="absolute bottom-full right-0 mb-1 w-48 bg-white dark:bg-[#16161D] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-lg p-3 z-50 text-xs text-zinc-500 dark:text-zinc-400">
+        No collections yet. Create one from the sidebar.
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute bottom-full right-0 mb-1 w-52 bg-white dark:bg-[#16161D] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-lg z-50 overflow-hidden">
+      <p className="px-3 py-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-white/[0.06]">
+        Add to collection
+      </p>
+      <div className="py-1 max-h-52 overflow-y-auto">
+        {collections.map((col) => {
+          const inCol   = collectionIds.includes(col._id);
+          const loading = colLoading === col._id;
+          return (
+            <button
+              key={col._id}
+              disabled={loading}
+              onClick={(e) => { e.stopPropagation(); onToggle(col._id, !inCol); }}
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+            >
+              <span className="h-5 w-5 shrink-0 flex items-center justify-center rounded bg-violet-50 dark:bg-violet-500/10">
+                {col.emoji && col.emoji !== "brain" ? (
+                  <span className="text-sm leading-none">{col.emoji}</span>
+                ) : (
+                  <CollectionIcon className="h-3 w-3 text-violet-500 dark:text-violet-400" />
+                )}
+              </span>
+              <span className="flex-1 truncate text-left text-zinc-700 dark:text-zinc-300">{col.name}</span>
+              {loading ? (
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin text-zinc-400 shrink-0" />
+              ) : inCol ? (
+                <CheckIcon className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      {/* unused contentId suppresses linter — it's consumed by onToggle callback in parent */}
+      <span className="hidden">{contentId}</span>
+    </div>
+  );
+}
