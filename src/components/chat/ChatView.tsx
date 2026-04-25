@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 interface Message {
-  role:      "user" | "assistant";
+  role:      "user" | "assistant" | "error";
   content:   string;
   createdAt: string;
 }
@@ -30,7 +30,6 @@ export default function ChatView({
   const [input,           setInput]           = useState("");
   const [sending,         setSending]         = useState(false);
   const [streamingText,   setStreamingText]   = useState("");   // in-flight SSE tokens
-  const [error,           setError]           = useState<string | null>(null);
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
   const abortRef   = useRef<AbortController | null>(null);
@@ -50,7 +49,6 @@ export default function ChatView({
     setInput("");
     setSending(true);
     setStreamingText("");
-    setError(null);
 
     // Cancel any previous in-flight request
     abortRef.current?.abort();
@@ -113,9 +111,11 @@ export default function ChatView({
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "Failed to send message");
-      // Roll back the optimistic user message
-      setMessages((prev) => prev.slice(0, -1));
+      // Roll back the optimistic user message and restore input
+      setMessages((prev) => [
+        ...prev.slice(0, -1),
+        { role: "error", content: "", createdAt: new Date().toISOString() },
+      ]);
       setInput(text);
       setStreamingText("");
     } finally {
@@ -269,17 +269,6 @@ export default function ChatView({
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Error bar ───────────────────────────────────────────────────── */}
-      {error && (
-        <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 text-xs
-                        text-red-600 dark:text-red-400
-                        bg-red-50 dark:bg-red-500/10
-                        border-t border-red-100 dark:border-red-500/20">
-          <span className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-          {error}
-        </div>
-      )}
-
       {/* ── Input ───────────────────────────────────────────────────────── */}
       <div className="shrink-0 px-4 py-3 bg-white dark:bg-zinc-950
                       border-t border-zinc-100 dark:border-zinc-800">
@@ -334,7 +323,26 @@ export default function ChatView({
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({ message }: { message: Message }) {
-  const isUser = message.role === "user";
+  const isUser  = message.role === "user";
+  const isError = message.role === "error";
+
+  if (isError) {
+    return (
+      <div className="flex gap-3 justify-start">
+        <div className="h-7 w-7 rounded-xl bg-zinc-200 dark:bg-zinc-800
+                        flex items-center justify-center shrink-0 self-end">
+          <WarnIcon className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+        </div>
+        <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm
+                        bg-zinc-100 dark:bg-zinc-800/60
+                        text-zinc-500 dark:text-zinc-400
+                        border border-zinc-200 dark:border-zinc-700">
+          Something went wrong — please try again.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
@@ -365,4 +373,7 @@ function ChevronLeftIcon({ className }: { className?: string }) {
 }
 function SendIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>;
+}
+function WarnIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>;
 }
