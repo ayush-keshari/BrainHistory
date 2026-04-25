@@ -90,6 +90,18 @@ export default function DashboardContent() {
     setSelectedIds(new Set());
   }, [activeType, activeCollection, fetchPage]);
 
+  // Refresh when mobile bottom-sheet adds content
+  useEffect(() => {
+    const handler = () => {
+      setLoading(true);
+      fetchPage(1, activeType, activeCollection);
+      refreshTypes();
+      refreshCollections();
+    };
+    window.addEventListener("bh:content-added", handler);
+    return () => window.removeEventListener("bh:content-added", handler);
+  }, [fetchPage, activeType, activeCollection, refreshTypes, refreshCollections]);
+
   // Poll for pending items
   useEffect(() => {
     const hasPending = items.some(
@@ -185,7 +197,7 @@ export default function DashboardContent() {
   const selectedCount = selectedIds.size;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 space-y-7">
+    <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-8 space-y-4 md:space-y-7">
 
       {/* Bulk delete modal */}
       {showBulkDeleteModal && (
@@ -197,8 +209,8 @@ export default function DashboardContent() {
         />
       )}
 
-      {/* ── Breadcrumb ── */}
-      <div className="flex items-center gap-1.5 text-xs">
+      {/* ── Breadcrumb (desktop only) ── */}
+      <div className="hidden md:flex items-center gap-1.5 text-xs">
         <span className="text-zinc-400 dark:text-zinc-600">Workspace</span>
         <span className="text-zinc-300 dark:text-zinc-700">/</span>
         <span className="text-zinc-500 dark:text-zinc-500">Library</span>
@@ -209,8 +221,8 @@ export default function DashboardContent() {
         </span>
       </div>
 
-      {/* ── Hero header ── */}
-      <div className="flex items-start justify-between gap-6 flex-wrap">
+      {/* ── Hero header (desktop) ── */}
+      <div className="hidden md:flex items-start justify-between gap-6 flex-wrap">
         <div>
           <h1 className="text-[2.25rem] font-bold tracking-tight text-zinc-900 dark:text-[#F5F5F7] leading-[1.15]">
             Your second{" "}
@@ -263,9 +275,49 @@ export default function DashboardContent() {
         </div>
       </div>
 
-      {/* ── Save form (toggleable) ── */}
+      {/* ── Mobile header ── */}
+      <div className="md:hidden space-y-3">
+        {/* Title row */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-[#F5F5F7]">
+            Your <em className="font-display not-italic gradient-text">Brain</em>
+          </h1>
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-amber-700 dark:text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                {pendingCount}
+              </span>
+            )}
+            {!loading && items.length > 0 && (
+              <button
+                onClick={() => { selectMode ? exitSelectMode() : setSelectMode(true); }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                  selectMode
+                    ? "bg-violet-600 border-violet-600 text-white"
+                    : "bg-white dark:bg-[#16161D] border-zinc-200 dark:border-white/[0.08] text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
+                <CheckboxIcon className="h-3 w-3" />
+                {selectMode ? "Cancel" : "Select"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats strip */}
+        {!loading && (
+          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none">
+            <MobileStatChip value={total} label="Saved" />
+            {collections.length > 0 && <MobileStatChip value={collections.length} label="Collections" />}
+            {availableTypes.length > 0 && <MobileStatChip value={availableTypes.length} label="Types" />}
+          </div>
+        )}
+      </div>
+
+      {/* ── Save form (desktop toggleable) ── */}
       {showSaveForm && (
-        <div className="animate-fade-in-up">
+        <div className="hidden md:block animate-fade-in-up">
           <SaveUrlForm onAdded={handleAdded} />
         </div>
       )}
@@ -279,16 +331,16 @@ export default function DashboardContent() {
 
       {/* ── Content grid ── */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-56 rounded-2xl skeleton border border-zinc-100 dark:border-white/[0.06]" />
+            <div key={i} className="h-48 md:h-56 rounded-2xl skeleton border border-zinc-100 dark:border-white/[0.06]" />
           ))}
         </div>
       ) : items.length === 0 ? (
         <EmptyState filtered={!!activeType || !!activeCollection} />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {items.map((item) => (
               <div key={item._id} className="card-stagger animate-fade-in-up">
                 <ContentCard
@@ -323,7 +375,7 @@ export default function DashboardContent() {
 
       {/* ── Floating bulk action bar ── */}
       {selectMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fab-in">
+        <div className="fixed bottom-[74px] md:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fab-in">
           <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#111116]/95 backdrop-blur-xl shadow-2xl border border-white/[0.08]">
             <span className="text-sm font-medium text-white/90">
               {selectedCount > 0 ? `${selectedCount} selected` : "Select items"}
@@ -332,7 +384,7 @@ export default function DashboardContent() {
               <>
                 <div className="h-4 w-px bg-white/10" />
                 <button onClick={selectAll} className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors">
-                  Select all
+                  All
                 </button>
                 <button onClick={clearSelect} className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors">
                   Clear
@@ -361,6 +413,17 @@ function StatPill({ icon, value, label }: { icon: React.ReactNode; value: number
       <span className="text-zinc-400 dark:text-zinc-600">{icon}</span>
       <span className="font-semibold text-zinc-700 dark:text-zinc-300">{value.toLocaleString()}</span>
       <span className="text-zinc-400 dark:text-zinc-600">{label}</span>
+    </div>
+  );
+}
+
+function MobileStatChip({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="shrink-0 flex flex-col items-center px-3 py-1.5 rounded-xl
+                    bg-white dark:bg-[#16161D]
+                    border border-zinc-100 dark:border-white/[0.06]">
+      <span className="text-base font-bold text-zinc-900 dark:text-[#F5F5F7] leading-none">{value.toLocaleString()}</span>
+      <span className="text-[10px] text-zinc-400 dark:text-white/40 mt-0.5">{label}</span>
     </div>
   );
 }

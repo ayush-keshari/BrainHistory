@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -29,6 +29,12 @@ export const metadata: Metadata = {
   verification: {
     google: "vGUAIyQSb3MrRePVtRnqOYJ6qvxiXNNoXYAgfXcep9Y",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default async function RootLayout({

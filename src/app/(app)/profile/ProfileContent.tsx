@@ -58,7 +58,7 @@ export default function ProfileContent({ name, email, image, providers, hasPassw
   const joined = new Date(joinedAt).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 py-5 md:py-10 space-y-4 md:space-y-6">
 
       {/* Page title */}
       <div className="space-y-1">

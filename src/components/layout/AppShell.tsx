@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { api, type CollectionItem } from "@/lib/api-client";
+import { api, type CollectionItem, type ContentItem } from "@/lib/api-client";
+import SaveUrlForm from "@/components/dashboard/SaveUrlForm";
 
 interface AppShellProps {
   user: { name: string; email: string; image?: string };
@@ -19,8 +20,6 @@ const NAV_PRIMARY = [
 const NAV_SECONDARY = [
   { href: "/profile",   label: "Profile",  icon: UserIcon                },
 ];
-// combined for mobile header
-const NAV = [...NAV_PRIMARY, ...NAV_SECONDARY];
 
 // Gradient per collection color for the sidebar dot
 const COL_GRAD: Record<string, string> = {
@@ -41,6 +40,9 @@ export default function AppShell({ user, children }: AppShellProps) {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
 
+  // Mobile add-content sheet
+  const [showAddSheet, setShowAddSheet] = useState(false);
+
   // Initials for avatar
   const initials = user.name
     .split(" ")
@@ -50,7 +52,7 @@ export default function AppShell({ user, children }: AppShellProps) {
     .join("");
 
   return (
-    <div className="min-h-screen flex bg-zinc-50 dark:bg-[#0B0B0F]">
+    <div className="min-h-screen flex bg-zinc-50 dark:bg-[#0B0B0F] overflow-x-hidden w-full">
 
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <aside className="hidden md:flex md:w-[252px] md:flex-col md:fixed md:inset-y-0 z-20
@@ -154,30 +156,17 @@ export default function AppShell({ user, children }: AppShellProps) {
         </div>
       </aside>
 
-      {/* ── Mobile top bar ─────────────────────────────────────────────── */}
-      <header className="md:hidden fixed inset-x-0 top-0 h-14 z-20 flex items-center px-4 gap-4
+      {/* ── Mobile top bar (brand + theme toggle) ──────────────────────── */}
+      <header className="md:hidden fixed inset-x-0 top-0 h-12 z-20 flex items-center px-4 gap-3
                          bg-white/90 dark:bg-[#111116]/90 backdrop-blur-sm
                          border-b border-zinc-100 dark:border-white/[0.06]">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <LogoMark size={24} />
+          <LogoMark size={22} />
           <span className="font-semibold text-sm text-zinc-900 dark:text-[#F5F5F7]">
             Brain<span className="font-normal dark:opacity-65">History</span>
           </span>
         </Link>
         <div className="flex-1" />
-        {NAV.map(({ href, label }) => (
-          <Link
-            key={href}
-            href={href}
-            className={`text-xs font-medium transition-colors ${
-              pathname.startsWith(href)
-                ? "text-violet-600 dark:text-[#9B7BFF]"
-                : "text-zinc-500 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white"
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
         <button
           onClick={toggleTheme}
           className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
@@ -188,11 +177,165 @@ export default function AppShell({ user, children }: AppShellProps) {
         </button>
       </header>
 
+      {/* ── Mobile bottom navigation ────────────────────────────────────── */}
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-30
+                      bg-white/95 dark:bg-[#111116]/95 backdrop-blur-xl
+                      border-t border-zinc-100 dark:border-white/[0.06]"
+           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div className="flex items-center h-[62px]">
+
+          {/* Library */}
+          <MobileNavItem
+            href="/dashboard"
+            label="Library"
+            active={pathname.startsWith("/dashboard")}
+            icon={<MobileLibraryIcon />}
+          />
+
+          {/* Search */}
+          <MobileNavItem
+            href="/search"
+            label="Search"
+            active={pathname.startsWith("/search")}
+            icon={<MobileSearchIcon />}
+          />
+
+          {/* Add (center elevated) */}
+          <div className="flex-1 flex justify-center items-center">
+            <button
+              onClick={() => setShowAddSheet(true)}
+              aria-label="Add content"
+              className="h-[52px] w-[52px] rounded-full
+                         bg-gradient-to-br from-[#9B7BFF] to-[#7C5CFF]
+                         shadow-lg shadow-violet-500/40
+                         flex items-center justify-center
+                         active:scale-95 transition-transform -mt-4"
+            >
+              <MobilePlusIcon />
+            </button>
+          </div>
+
+          {/* Collections → dashboard with sidebar visible */}
+          <MobileNavItem
+            href="/dashboard"
+            label="Collections"
+            active={false}
+            icon={<MobileFolderIcon />}
+          />
+
+          {/* Profile */}
+          <MobileNavItem
+            href="/profile"
+            label="Profile"
+            active={pathname.startsWith("/profile")}
+            icon={<MobileUserIcon />}
+          />
+
+        </div>
+      </nav>
+
+      {/* ── Mobile add-content bottom sheet ────────────────────────────── */}
+      {showAddSheet && (
+        <AddBottomSheet onClose={() => setShowAddSheet(false)} />
+      )}
+
       {/* ── Main content ────────────────────────────────────────────────── */}
-      <main className="flex-1 md:ml-[252px] min-h-screen">
-        <div className="pt-14 md:pt-0 h-full">{children}</div>
+      <main className="flex-1 md:ml-[252px] min-h-screen min-w-0 w-full overflow-x-hidden">
+        <div className="pt-12 md:pt-0 pb-[calc(62px+env(safe-area-inset-bottom,0px))] md:pb-0 h-full overflow-x-hidden">
+          {children}
+        </div>
       </main>
     </div>
+  );
+}
+
+// ─── Mobile bottom-sheet for Add Content ─────────────────────────────────────
+
+function AddBottomSheet({ onClose }: { onClose: () => void }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  // Close on backdrop click
+  const handleBackdrop = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  // Notify dashboard to refresh when something is added
+  const handleAdded = (_item: ContentItem) => {
+    window.dispatchEvent(new CustomEvent("bh:content-added"));
+    onClose();
+  };
+
+  // Trap scroll on body while sheet is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  return (
+    <div
+      className="md:hidden fixed inset-0 z-40 flex flex-col justify-end"
+      onClick={handleBackdrop}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+      {/* Sheet */}
+      <div
+        ref={sheetRef}
+        className="relative z-10 rounded-t-3xl bg-white dark:bg-[#16161D]
+                   border-t border-zinc-100 dark:border-white/[0.08]
+                   shadow-2xl animate-sheet-up"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 12px)" }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20" />
+        </div>
+
+        {/* Header row */}
+        <div className="flex items-center justify-between px-5 py-3">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-[#F5F5F7]">
+            Add to Brain
+          </h2>
+          <button
+            onClick={onClose}
+            className="h-7 w-7 rounded-full flex items-center justify-center
+                       bg-zinc-100 dark:bg-white/[0.08]
+                       text-zinc-500 dark:text-white/50
+                       hover:bg-zinc-200 dark:hover:bg-white/[0.12] transition-colors"
+          >
+            <SheetCloseIcon />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="px-4 pb-4">
+          <SaveUrlForm onAdded={handleAdded} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Mobile nav item ──────────────────────────────────────────────────────────
+
+function MobileNavItem({
+  href, label, active, icon,
+}: {
+  href: string; label: string; active: boolean; icon: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-colors ${
+        active
+          ? "text-[#7C5CFF] dark:text-[#9B7BFF]"
+          : "text-zinc-400 dark:text-white/35"
+      }`}
+    >
+      {icon}
+      <span className="text-[10px] font-medium">{label}</span>
+    </Link>
   );
 }
 
@@ -695,4 +838,50 @@ function StarIcon({ className }: { className?: string }) {
 }
 function PrivacyShieldIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>;
+}
+
+// ─── Mobile bottom nav icons (24×24, 1.8 stroke) ─────────────────────────────
+
+function MobileLibraryIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/>
+    </svg>
+  );
+}
+function MobileSearchIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <circle cx="11" cy="11" r="8"/>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/>
+    </svg>
+  );
+}
+function MobilePlusIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    </svg>
+  );
+}
+function MobileFolderIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
+    </svg>
+  );
+}
+function MobileUserIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+    </svg>
+  );
+}
+function SheetCloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  );
 }

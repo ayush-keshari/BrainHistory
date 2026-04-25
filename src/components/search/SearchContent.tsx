@@ -27,23 +27,23 @@ export default function SearchContent() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12 space-y-8">
+    <div className="max-w-2xl mx-auto px-4 py-6 md:py-12 space-y-6 md:space-y-8">
 
       {/* Hero */}
-      <div className="space-y-3 text-center">
+      <div className="space-y-2 md:space-y-3 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-100 dark:border-violet-500/20">
           <SparkleIcon className="h-3.5 w-3.5" />
           AI-Powered Semantic Search
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
           Ask your <span className="gradient-text">saved content</span>
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Ask anything — AI finds relevant content and synthesizes an answer from your library.
+        <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400">
+          Ask anything — AI finds relevant content and synthesizes an answer.
         </p>
       </div>
 
-      {/* Search form */}
+      {/* Search form — single button, always visible, text label hides on tiny screens */}
       <form onSubmit={handleSearch}>
         <div className="flex items-center gap-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-sm dark:shadow-zinc-900/50 px-4 py-2 focus-within:ring-2 focus-within:ring-violet-500/30 focus-within:border-violet-400 dark:focus-within:border-violet-500 transition-all">
           <SearchIcon className="h-5 w-5 text-violet-500 dark:text-violet-400 shrink-0" />
@@ -51,16 +51,18 @@ export default function SearchContent() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="What do you want to know about your saved content?"
+            placeholder="Ask about your saved content…"
             className="flex-1 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-transparent focus:outline-none"
           />
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/20"
+            className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/20"
           >
-            {loading ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <SearchIcon className="h-4 w-4" />}
-            {loading ? "Searching…" : "Search"}
+            {loading
+              ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              : <SearchIcon className="h-4 w-4" />}
+            <span className="hidden sm:inline">{loading ? "Searching…" : "Search"}</span>
           </button>
         </div>
       </form>
@@ -132,7 +134,7 @@ export default function SearchContent() {
 
       {/* Empty state */}
       {!loading && !result && !error && (
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 pt-1">
           {EXAMPLE_QUERIES.map((q) => (
             <button key={q} onClick={() => setQuery(q)}
               className="text-left px-4 py-3 rounded-xl text-xs bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:border-violet-200 dark:hover:border-violet-500/30 hover:text-violet-600 dark:hover:text-violet-400 transition-all">
