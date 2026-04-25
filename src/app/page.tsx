@@ -206,7 +206,7 @@ export default async function Home() {
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <footer className="px-6 py-8 border-t border-zinc-100 dark:border-zinc-800">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="h-5 w-5 rounded-md bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
               <BrainIcon className="h-3 w-3 text-white" />
@@ -215,9 +215,19 @@ export default async function Home() {
               Brain<span className="gradient-text">History</span>
             </span>
           </div>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            Your content is private and only visible to you.
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              Your content is private and only visible to you.
+            </p>
+            <Link
+              href="/privacy"
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500
+                         hover:text-violet-600 dark:hover:text-violet-400 transition-colors font-medium"
+            >
+              <PrivacyIcon className="h-3.5 w-3.5" />
+              Privacy Policy
+            </Link>
+          </div>
         </div>
       </footer>
     </main>
@@ -240,4 +250,7 @@ function SearchFeatureIcon() {
 }
 function ChatFeatureIcon() {
   return <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>;
+}
+function PrivacyIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>;
 }

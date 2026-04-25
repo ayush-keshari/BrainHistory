@@ -100,7 +100,7 @@ const ContentChunkSchema = new Schema<IContentChunk>(
 // ─── Indexes ──────────────────────────────────────────────────────────────────
 
 ContentChunkSchema.index({ contentId: 1, chunkIndex: 1 });
-ContentChunkSchema.index({ userId: 1 });
+// Note: userId single-field index is already created by `index: true` in the schema field.
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 

@@ -76,7 +76,7 @@ const UserSchema = new Schema<IUser>(
 
 // ─── Indexes ──────────────────────────────────────────────────────────────────
 
-UserSchema.index({ email: 1 }, { unique: true });
+// Note: email unique index is already created by `unique: true` in the schema field.
 UserSchema.index({ "accounts.provider": 1, "accounts.providerAccountId": 1 });
 
 // ─── Model (safe re-use in hot-reload) ────────────────────────────────────────
