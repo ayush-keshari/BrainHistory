@@ -1,12 +1,15 @@
 /**
  * GitHubExtractor
  *
- * Handles repo pages, issues, PRs, and single files via the GitHub REST API.
- * No auth required for public repos; set GITHUB_TOKEN for higher rate limits.
+ * Primary path: GitHub REST API (higher quality metadata).
+ * Fallback path: scrape the GitHub HTML page via Open Graph tags when the
+ * API returns 403 (unauthenticated rate-limit on shared IPs like Render) or
+ * any other error.
  *
- * Optional env: GITHUB_TOKEN
+ * Optional env: GITHUB_TOKEN  — raises unauthenticated limit 60 → 5000 req/hr
  */
 
+import * as cheerio from "cheerio";
 import { ContentType, ExtractedContent, GitHubMetadata } from "@/types";
 import { BaseExtractor } from "./base";
 import { httpClient } from "./http-client";
@@ -51,11 +54,20 @@ export class GitHubExtractor extends BaseExtractor {
     const parsed = parseGitHubUrl(url);
     if (!parsed) throw new Error(`Cannot parse GitHub URL: ${url}`);
 
-    switch (parsed.type) {
-      case "issue": return this.extractIssue(url, parsed);
-      case "pr":    return this.extractIssue(url, parsed); // PRs use same issues API
-      case "file":  return this.extractFile(url, parsed);
-      default:      return this.extractRepo(url, parsed);
+    try {
+      switch (parsed.type) {
+        case "issue": return await this.extractIssue(url, parsed);
+        case "pr":    return await this.extractIssue(url, parsed); // PRs use same issues API
+        case "file":  return await this.extractFile(url, parsed);
+        default:      return await this.extractRepo(url, parsed);
+      }
+    } catch (apiErr) {
+      // GitHub API returned 403 (unauthenticated rate-limit on shared server IPs)
+      // or another transient error — fall back to scraping the HTML page.
+      console.warn(
+        `[GitHubExtractor] API failed (${String(apiErr).slice(0, 120)}), falling back to HTML scrape for ${url}`
+      );
+      return this.extractViaHtml(url, parsed);
     }
   }
 
@@ -148,6 +160,77 @@ export class GitHubExtractor extends BaseExtractor {
       contentType: ContentType.GITHUB,
       title:       meta.title,
       description: `File: ${filePath}`,
+      rawText,
+      metadata:    meta,
+      isLarge:     this.isLargeContent(rawText),
+      extractedAt: this.now(),
+    };
+  }
+
+  /**
+   * Fallback: scrape the GitHub HTML page and read Open Graph / meta tags.
+   * GitHub sets og:title, og:description, og:image on every public page.
+   * Works without a token and is not rate-limited like the REST API.
+   */
+  private async extractViaHtml(url: string, p: ParsedGHUrl): Promise<ExtractedContent> {
+    const { data: html } = await httpClient.get<string>(url, {
+      headers: {
+        // Use a browser-like Accept to get the full HTML, not a JSON API response
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      maxContentLength: 3 * 1024 * 1024,
+    });
+
+    const $ = cheerio.load(html);
+
+    const og = (prop: string) =>
+      $(`meta[property="og:${prop}"]`).attr("content") ??
+      $(`meta[name="og:${prop}"]`).attr("content") ??
+      "";
+
+    const title =
+      og("title") ||
+      $("title").text().replace("· GitHub", "").trim() ||
+      `${p.owner}/${p.repo}`;
+
+    const description =
+      og("description") ||
+      $('meta[name="description"]').attr("content") ||
+      "";
+
+    const thumbnail = og("image") || undefined;
+
+    // README preview — GitHub renders it inside a specific container
+    const readmeText = this.cleanText(
+      $("#readme").text() ||
+      $('[data-target="readme-toc.content"]').text() ||
+      ""
+    );
+
+    // About text from the sidebar
+    const aboutText = this.cleanText(
+      $(".f4.my-3").text() || $('[itemprop="about"]').text() || description
+    );
+
+    const rawText = this.cleanText(
+      `${title}\n\n${aboutText}\n\n${readmeText}` || url
+    );
+
+    const meta: GitHubMetadata = {
+      owner:       p.owner,
+      repo:        p.repo ?? "",
+      type:        p.type,
+      title,
+      description: description || undefined,
+    };
+
+    return {
+      url,
+      contentType: ContentType.GITHUB,
+      title,
+      description: description || undefined,
+      thumbnail,
+      author:      p.owner,
       rawText,
       metadata:    meta,
       isLarge:     this.isLargeContent(rawText),

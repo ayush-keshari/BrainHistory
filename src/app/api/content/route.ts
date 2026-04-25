@@ -95,7 +95,9 @@ export async function POST(req: NextRequest) {
     const hostname = (() => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } })();
     const title       = extracted?.title       ?? hostname;
     const description = extracted?.description ?? "";
-    const rawText     = extracted?.rawText     ?? "";
+    // rawText must be non-empty (Mongoose `required` rejects ""). When extraction
+    // fails we store the URL so the record saves cleanly with FAILED status.
+    const rawText     = extracted?.rawText || url;
     const thumbnail   = extracted?.thumbnail;
     const author      = extracted?.author;
     const publishedAt = extracted?.publishedAt;
