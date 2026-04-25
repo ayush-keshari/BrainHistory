@@ -39,6 +39,7 @@ export interface VectorSearchResult {
 export interface VectorSearchOptions {
   userId:        string;
   queryVector:   number[];
+  queryText?:    string;
   limit?:        number;
   contentTypes?: string[];
   /** Restrict to a single content item (PDF chat mode) */
@@ -56,6 +57,7 @@ export async function vectorSearch(
   const chunkResults = await queryVectors({
     userId:       opts.userId,
     queryVector:  opts.queryVector,
+    queryText:    opts.queryText,
     topK:         opts.limit ?? 10,
     contentTypes: opts.contentTypes,
     contentId:    opts.contentId,

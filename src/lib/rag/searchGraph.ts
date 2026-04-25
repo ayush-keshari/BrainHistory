@@ -39,6 +39,7 @@ async function vectorSearchNode(state: SearchState): Promise<Partial<SearchState
   const rawResults = await vectorSearch({
     userId:       state.query.userId,
     queryVector:  state.queryVector,
+    queryText:    state.query.query,
     limit:        (state.query.limit ?? 10) * 2, // over-fetch for de-dup
     contentTypes: state.query.contentTypes,
   });
@@ -72,9 +73,17 @@ async function vectorSearchNode(state: SearchState): Promise<Partial<SearchState
 }
 
 async function generateAnswerNode(state: SearchState): Promise<Partial<SearchState>> {
+  // No chunks found — skip LLM calls entirely and return a clear message
+  if (state.rawResults.length === 0) {
+    return {
+      aiAnswer:    "",
+      latestAiCtx: "",
+    };
+  }
+
   const llm = getLLM();
 
-  // Use top-5 chunks as context (Pinecone already ranked them by relevance)
+  // Use top-5 chunks as context
   const contextBlocks = state.rawResults
     .slice(0, 5)
     .map((r, i) => `[${i + 1}] Source: ${r.title}\n${r.chunkText}`)
