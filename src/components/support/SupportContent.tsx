@@ -146,14 +146,14 @@ export default function SupportContent() {
           </div>
 
           <a
-            href="mailto:support@brainhistory.app"
+            href="mailto:srv.br009@gmail.com"
             className="relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
                        text-white bg-gradient-to-r from-violet-600 to-indigo-600
                        hover:from-violet-500 hover:to-indigo-500
                        shadow-lg shadow-violet-500/20 transition-all active:scale-95"
           >
             <MailIcon className="h-4 w-4" />
-            support@brainhistory.app
+            srv.br009@gmail.com
           </a>
 
           <p className="relative text-xs text-zinc-400 dark:text-zinc-500">

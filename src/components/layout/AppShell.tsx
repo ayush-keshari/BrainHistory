@@ -19,7 +19,6 @@ const NAV_PRIMARY = [
 ];
 const NAV_SECONDARY = [
   { href: "/profile",   label: "Profile",  icon: UserIcon                },
-  { href: "/support",   label: "Support",  icon: SupportIcon             },
 ];
 
 // Gradient per collection color for the sidebar dot
@@ -68,15 +67,37 @@ export default function AppShell({ user, children }: AppShellProps) {
               Brain<span className="font-normal dark:opacity-65">History</span>
             </span>
           </Link>
-          <button
-            onClick={toggleTheme}
-            title={isDark ? "Light mode" : "Dark mode"}
-            className="shrink-0 ml-1 p-1.5 rounded-lg text-zinc-400 dark:text-white/40
-                       hover:text-zinc-700 dark:hover:text-white/80
-                       hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-all"
-          >
-            {isDark ? <SunIcon className="h-3.5 w-3.5" /> : <MoonIcon className="h-3.5 w-3.5" />}
-          </button>
+
+          {/* Support + Privacy + theme toggle */}
+          <div className="flex items-center gap-0.5 shrink-0 ml-1">
+            <Link
+              href="/support"
+              title="Support"
+              className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
+                         hover:text-violet-600 dark:hover:text-violet-400
+                         hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
+            >
+              <SupportIcon className="h-3.5 w-3.5" />
+            </Link>
+            <Link
+              href="/privacy"
+              title="Privacy Policy"
+              className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
+                         hover:text-violet-600 dark:hover:text-violet-400
+                         hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
+            >
+              <PrivacyShieldIcon className="h-3.5 w-3.5" />
+            </Link>
+            <button
+              onClick={toggleTheme}
+              title={isDark ? "Light mode" : "Dark mode"}
+              className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
+                         hover:text-zinc-700 dark:hover:text-white/80
+                         hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-all"
+            >
+              {isDark ? <SunIcon className="h-3.5 w-3.5" /> : <MoonIcon className="h-3.5 w-3.5" />}
+            </button>
+          </div>
         </div>
 
         {/* Scrollable nav area */}
@@ -140,20 +161,6 @@ export default function AppShell({ user, children }: AppShellProps) {
             <ChevronIcon className="h-3.5 w-3.5 text-zinc-300 dark:text-white/20 shrink-0" />
           </div>
 
-          {/* Privacy link */}
-          <div className="mt-1 flex justify-center">
-            <Link
-              href="/privacy"
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium
-                         text-zinc-400 dark:text-white/25
-                         hover:text-violet-600 dark:hover:text-[#9B7BFF]
-                         hover:bg-violet-50 dark:hover:bg-[rgba(124,92,255,0.08)]
-                         transition-all"
-            >
-              <PrivacyShieldIcon className="h-3 w-3" />
-              Privacy Policy
-            </Link>
-          </div>
         </div>
       </aside>
 
@@ -168,14 +175,36 @@ export default function AppShell({ user, children }: AppShellProps) {
           </span>
         </Link>
         <div className="flex-1" />
-        <button
-          onClick={toggleTheme}
-          className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
-                     hover:text-zinc-700 dark:hover:text-white
-                     hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-all"
-        >
-          {isDark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-        </button>
+
+        {/* Support + Privacy + theme */}
+        <div className="flex items-center gap-0.5">
+          <Link
+            href="/support"
+            title="Support"
+            className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
+                       hover:text-violet-600 dark:hover:text-violet-400
+                       hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
+          >
+            <SupportIcon className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/privacy"
+            title="Privacy Policy"
+            className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
+                       hover:text-violet-600 dark:hover:text-violet-400
+                       hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
+          >
+            <PrivacyShieldIcon className="h-4 w-4" />
+          </Link>
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg text-zinc-400 dark:text-white/40
+                       hover:text-zinc-700 dark:hover:text-white
+                       hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-all"
+          >
+            {isDark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+          </button>
+        </div>
       </header>
 
       {/* ── Mobile bottom navigation ────────────────────────────────────── */}
