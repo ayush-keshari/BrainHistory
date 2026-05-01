@@ -1,7 +1,7 @@
 /**
  * PDFExtractor
  *
- * Downloads a PDF from the given URL and extracts text using pdf-parse v1.
+ * Downloads a PDF from the given URL and extracts text using pdfjs-dist.
  * PDFs are almost always "large" content and will trigger chat mode.
  */
 
