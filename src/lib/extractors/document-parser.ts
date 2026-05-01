@@ -10,8 +10,6 @@
  *   DOC   (.doc)  — mammoth (best-effort; older binary format)
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
-
 export interface ParsedDocument {
   text:      string;
   title?:    string;
@@ -25,15 +23,23 @@ export interface ParsedDocument {
 
 const LARGE_THRESHOLD = 10_000; // chars
 
-// Set up pdfjs worker
-if (typeof window === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.min.js');
-}
-
 // ─── PDF ──────────────────────────────────────────────────────────────────────
 
 export async function parsePdfBuffer(buffer: Buffer): Promise<ParsedDocument> {
+  // Dynamically import pdfjs-dist at runtime to avoid DOMMatrix issues at build time
+  const pdfjsLib = await import('pdfjs-dist');
+  
+  // Setup worker for Node.js runtime
+  if (typeof window === 'undefined') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfjsWorker = require('pdfjs-dist/build/pdf.worker');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+    } catch (e) {
+      // Fallback: let pdfjs handle worker initialization
+    }
+  }
+  
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   const pageCount = pdf.numPages;
   const metadata = await pdf.getMetadata().catch(() => null);
