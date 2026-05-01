@@ -40,7 +40,10 @@ export async function parsePdfBuffer(buffer: Buffer): Promise<ParsedDocument> {
     }
   }
   
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  // Convert Buffer to Uint8Array as required by pdfjs-dist
+  const uint8Array = new Uint8Array(buffer);
+  
+  const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
   const pageCount = pdf.numPages;
   const metadata = await pdf.getMetadata().catch(() => null);
   
