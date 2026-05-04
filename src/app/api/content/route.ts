@@ -126,21 +126,27 @@ export async function POST(req: NextRequest) {
       processingError:  extractionFailed ? extractionError           : undefined,
     });
 
-    // Kick off async embedding only when we have actual text to index
+    // Index embedding synchronously so the API only returns once AI readiness is
+    // either completed or has a recorded failure state.
+    let indexingMessage = extractionFailed
+      ? "Saved but extraction failed"
+      : "Saved and indexed successfully";
+
     if (!extractionFailed && extracted) {
-      getEmbeddingService()
-        .indexContent(
+      try {
+        await getEmbeddingService().indexContent(
           content._id as mongoose.Types.ObjectId,
           new mongoose.Types.ObjectId(userId),
           extracted
-        )
-        .catch((err: unknown) => {
-          console.error("[Embedding] Failed for", content._id, err);
-          Content.findByIdAndUpdate(content._id, {
-            processingStatus: ProcessingStatus.FAILED,
-            processingError:  String(err),
-          }).exec();
+        );
+      } catch (err: unknown) {
+        indexingMessage = "Saved but AI indexing failed";
+        console.error("[Embedding] Failed for", content._id, err);
+        await Content.findByIdAndUpdate(content._id, {
+          processingStatus: ProcessingStatus.FAILED,
+          processingError:  String(err),
         });
+      }
     }
 
     return NextResponse.json(
@@ -150,7 +156,7 @@ export async function POST(req: NextRequest) {
         contentType: content.contentType,
         title:       content.title,
         isLarge:     contentSize === ContentSize.LARGE,
-        message:     "Saved and indexing started",
+        message:     indexingMessage,
       },
       { status: 201 }
     );

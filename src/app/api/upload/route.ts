@@ -11,7 +11,7 @@
  *   │              ↓  (both in parallel)         ↓                     │
  *   │         Content doc created  (fileUrl + rawText both set)        │
  *   │                          ↓                                       │
- *   │             ③ indexContent() — async, non-blocking               │
+ *   │             ③ indexContent() — awaited for reliable AI readiness  │
  *   │                passes fileUrl into every chunk's metadata        │
  *   │                so vector search results reference original file  │
  *   └───────────────────────────────────────────────────────────────────┘
@@ -220,9 +220,11 @@ export async function POST(req: NextRequest) {
 
     const contentId = (content._id as mongoose.Types.ObjectId).toString();
 
-    // ── ③ Kick off embeddings async — carries fileUrl into every chunk ────────
-    getEmbeddingService()
-      .indexContent(
+    // ── ③ Index embeddings synchronously so the API call only returns when
+    // the content is AI-ready or has a recorded failure state.
+    let indexingMessage = "File uploaded and indexed successfully";
+    try {
+      await getEmbeddingService().indexContent(
         content._id as mongoose.Types.ObjectId,
         userObjId,
         {
@@ -237,14 +239,15 @@ export async function POST(req: NextRequest) {
           platform:    "upload",
           fileUrl,          // ← stored in every vector chunk's metadata
         }
-      )
-      .catch((err: unknown) => {
-        console.error("[Upload embed] failed for", contentId, err);
-        Content.findByIdAndUpdate(content._id, {
-          processingStatus: ProcessingStatus.FAILED,
-          processingError:  String(err),
-        }).exec();
+      );
+    } catch (err: unknown) {
+      indexingMessage = "File uploaded but AI indexing failed";
+      console.error("[Upload embed] failed for", contentId, err);
+      await Content.findByIdAndUpdate(content._id, {
+        processingStatus: ProcessingStatus.FAILED,
+        processingError:  String(err),
       });
+    }
 
     return NextResponse.json(
       {
@@ -255,7 +258,7 @@ export async function POST(req: NextRequest) {
         isLarge:     contentSize === ContentSize.LARGE,
         fileUrl,
         thumbnail,
-        message:     "File uploaded and indexing started",
+        message:     indexingMessage,
       },
       { status: 201 }
     );

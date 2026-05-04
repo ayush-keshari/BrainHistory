@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
 
     const contentId = (content._id as mongoose.Types.ObjectId).toString();
 
-    // Index embeddings async (non-blocking)
-    getEmbeddingService()
-      .indexContent(
+    let indexingMessage = "Note saved and indexed successfully";
+    try {
+      await getEmbeddingService().indexContent(
         content._id as mongoose.Types.ObjectId,
         userObjId,
         {
@@ -84,17 +84,18 @@ export async function POST(req: NextRequest) {
           extractedAt: new Date(),
           platform:    "note",
         }
-      )
-      .catch((err: unknown) => {
-        console.error("[Note embed] failed for", contentId, err);
-        Content.findByIdAndUpdate(content._id, {
-          processingStatus: ProcessingStatus.FAILED,
-          processingError:  String(err),
-        }).exec();
+      );
+    } catch (err: unknown) {
+      indexingMessage = "Note saved but AI indexing failed";
+      console.error("[Note embed] failed for", contentId, err);
+      await Content.findByIdAndUpdate(content._id, {
+        processingStatus: ProcessingStatus.FAILED,
+        processingError:  String(err),
       });
+    }
 
     return NextResponse.json(
-      { success: true, contentId, title, contentType: ContentType.NOTE, isLarge },
+      { success: true, contentId, title, contentType: ContentType.NOTE, isLarge, message: indexingMessage },
       { status: 201 }
     );
   } catch (err) {

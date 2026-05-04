@@ -138,7 +138,7 @@ export const swaggerSpec = {
           contentType: { $ref: "#/components/schemas/ContentType" },
           title:       { type: "string" },
           isLarge:     { type: "boolean", description: "true = chat mode activated" },
-          message:     { type: "string", example: "Saved and indexing started" },
+          message:     { type: "string", example: "Saved and indexed successfully" },
         },
       },
       SearchResultItem: {

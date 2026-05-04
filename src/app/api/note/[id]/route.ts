@@ -68,10 +68,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
 
     // Re-index: delete old vectors then create new ones
-    deleteContentVectors(userId, id).catch(() => {});
+    await deleteContentVectors(userId, id).catch((err: unknown) => {
+      console.warn("[Note update] deleteContentVectors failed", err);
+    });
 
-    getEmbeddingService()
-      .indexContent(contentId, userObjId, {
+    let indexingMessage = "Note updated and indexed successfully";
+    try {
+      await getEmbeddingService().indexContent(contentId, userObjId, {
         url:         `brainhistory://note/${userId}/${id}`,
         contentType: ContentType.NOTE,
         title,
@@ -81,16 +84,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         isLarge,
         extractedAt: new Date(),
         platform:    "note",
-      })
-      .catch((err: unknown) => {
-        console.error("[Note update embed] failed for", id, err);
-        Content.findByIdAndUpdate(contentId, {
-          processingStatus: ProcessingStatus.FAILED,
-          processingError:  String(err),
-        }).exec();
       });
+    } catch (err: unknown) {
+      indexingMessage = "Note updated but AI indexing failed";
+      console.error("[Note update embed] failed for", id, err);
+      await Content.findByIdAndUpdate(contentId, {
+        processingStatus: ProcessingStatus.FAILED,
+        processingError:  String(err),
+      });
+    }
 
-    return NextResponse.json({ success: true, title, isLarge });
+    return NextResponse.json({ success: true, title, isLarge, message: indexingMessage });
   } catch (err) {
     console.error("[PATCH /api/note/[id]]", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
