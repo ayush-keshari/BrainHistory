@@ -87,13 +87,22 @@ export class EmbeddingService {
       }
 
       // ── 2. Batch embed ────────────────────────────────────────────────────
-      const BATCH_SIZE = 100;
-      const allVectors: number[][] = [];
-
+      const BATCH_SIZE = parseInt(process.env.EMBED_BATCH_SIZE ?? "50", 10);
+      const BATCH_CONCURRENCY = parseInt(process.env.EMBED_BATCH_CONCURRENCY ?? "3", 10);
+      const batches: string[][] = [];
       for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-        const batch = chunks.slice(i, i + BATCH_SIZE).map((c) => c.text);
-        const vecs  = await this.embeddings.embedDocuments(batch);
-        allVectors.push(...vecs);
+        batches.push(chunks.slice(i, i + BATCH_SIZE).map((c) => c.text));
+      }
+
+      const allVectors: number[][] = [];
+      for (let i = 0; i < batches.length; i += BATCH_CONCURRENCY) {
+        const group = batches.slice(i, i + BATCH_CONCURRENCY).map((batch) =>
+          this.embeddings.embedDocuments(batch)
+        );
+        const results = await Promise.all(group);
+        for (const vecs of results) {
+          allVectors.push(...vecs);
+        }
       }
 
       // ── 3. Upsert → Atlas (content_chunks collection) ────────────────────
