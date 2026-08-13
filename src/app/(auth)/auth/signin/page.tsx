@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/auth";
+import { auth, signIn, HAS_GITHUB_AUTH } from "@/auth";
 import CredentialsForm from "./CredentialsForm";
 
 export const metadata = { title: "Sign In — BrainHistory" };
@@ -87,7 +87,7 @@ export default async function SignInPage({
             <form
               action={async () => {
                 "use server";
-                await signIn("google", { redirectTo: callbackOrDefault });
+                await signIn("google", { callbackUrl: callbackOrDefault });
               }}
             >
               <button
@@ -99,20 +99,22 @@ export default async function SignInPage({
               </button>
             </form>
 
-            <form
-              action={async () => {
-                "use server";
-                await signIn("github", { redirectTo: callbackOrDefault });
-              }}
-            >
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-3 rounded-xl py-3 text-sm font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-violet-300 dark:hover:border-violet-500/40 hover:bg-white dark:hover:bg-zinc-700/60 transition-all"
+            {HAS_GITHUB_AUTH && (
+              <form
+                action={async () => {
+                  "use server";
+                  await signIn("github", { callbackUrl: callbackOrDefault });
+                }}
               >
-                <GitHubIcon />
-                GitHub
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-3 rounded-xl py-3 text-sm font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-violet-300 dark:hover:border-violet-500/40 hover:bg-white dark:hover:bg-zinc-700/60 transition-all"
+                >
+                  <GitHubIcon />
+                  GitHub
+                </button>
+              </form>
+            )}
           </div>
 
           <p className="mt-auto text-xs text-zinc-400 dark:text-zinc-500">
@@ -147,7 +149,7 @@ export default async function SignInPage({
               First time here?
             </p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Sign in with Google or GitHub first, then go to{" "}
+              Sign in with Google{HAS_GITHUB_AUTH ? " or GitHub" : ""} first, then go to{" "}
               <a href="/profile" className="text-violet-600 dark:text-violet-400 hover:underline font-medium">
                 Profile → Set Password
               </a>{" "}

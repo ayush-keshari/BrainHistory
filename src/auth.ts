@@ -6,6 +6,7 @@
  *
  * Required env:
  *   NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+ * Optional env:
  *   GITHUB_ID, GITHUB_SECRET
  */
 
@@ -14,20 +15,41 @@ import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
 import { scryptSync, timingSafeEqual } from "crypto";
+import mongoose from "mongoose";
 import connectDB from "@/lib/db/mongoose";
 import { User } from "@/models";
 
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? "";
+if (!NEXTAUTH_SECRET) {
+  throw new Error("Please define NEXTAUTH_SECRET in .env.local");
+}
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  throw new Error("Please define GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local");
+}
+
+const GITHUB_ID = process.env.GITHUB_ID ?? "";
+const GITHUB_SECRET = process.env.GITHUB_SECRET ?? "";
+const HAS_GITHUB_AUTH = Boolean(GITHUB_ID && GITHUB_SECRET);
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: NEXTAUTH_SECRET,
   trustHost: true,
   providers: [
     GoogleProvider({
-      clientId:     process.env.GOOGLE_CLIENT_ID     ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      clientId:     GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
     }),
-    GitHubProvider({
-      clientId:     process.env.GITHUB_ID     ?? "",
-      clientSecret: process.env.GITHUB_SECRET ?? "",
-    }),
+    ...(HAS_GITHUB_AUTH
+      ? [
+          GitHubProvider({
+            clientId:     GITHUB_ID,
+            clientSecret: GITHUB_SECRET,
+          }),
+        ]
+      : []),
 
     // Email + password — only works for accounts that have set a password via /profile
     Credentials({
@@ -70,36 +92,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user, account }) {
       if (user && account) {
-        await connectDB();
-
         if (account.type === "credentials") {
           // User was authenticated via email+password — just look up their ID
+          await connectDB();
           const dbUser = await User.findOne({ email: user.email }).select("_id");
           if (dbUser) token.userId = (dbUser as { _id: { toString(): string } })._id.toString();
         } else {
           // OAuth provider — upsert user and link account
-          const dbUser = await User.findOneAndUpdate(
-            { email: user.email! },
-            {
-              $setOnInsert: {
-                email: user.email,
-                name:  user.name  ?? "",
-                image: user.image ?? undefined,
-              },
-              $addToSet: {
-                accounts: {
-                  provider:          account.provider,
-                  providerAccountId: account.providerAccountId,
-                  access_token:      account.access_token,
-                  refresh_token:     account.refresh_token,
-                  expires_at:        account.expires_at,
+          try {
+            await connectDB();
+            const dbUser = await User.findOneAndUpdate(
+              { email: user.email! },
+              {
+                $setOnInsert: {
+                  email: user.email,
+                  name:  user.name  ?? "",
+                  image: user.image ?? undefined,
+                },
+                $addToSet: {
+                  accounts: {
+                    provider:          account.provider,
+                    providerAccountId: account.providerAccountId,
+                    access_token:      account.access_token,
+                    refresh_token:     account.refresh_token,
+                    expires_at:        account.expires_at,
+                  },
                 },
               },
-            },
-            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-          ).select("_id");
+              { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+            ).select("_id");
 
-          token.userId = (dbUser as { _id: { toString(): string } })._id.toString();
+            token.userId = (dbUser as { _id: { toString(): string } })._id.toString();
+          } catch (error) {
+            console.error("[auth] MongoDB upsert failed:", error);
+            // Do not set an invalid userId value from OAuth provider fields.
+            // If the DB is unavailable, the app should treat this session as
+            // unauthenticated rather than using a malformed ID.
+          }
         }
       }
       return token;
@@ -118,3 +147,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error:  "/auth/error",
   },
 });
+
+export { HAS_GITHUB_AUTH };

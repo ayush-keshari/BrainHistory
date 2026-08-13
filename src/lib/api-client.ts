@@ -59,6 +59,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
+    // If the request is unauthorized, redirect the browser to sign-in.
+    // This file is a browser-only API client; guard against SSR.
+    if (res.status === 401) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth/signin";
+      }
+      throw new Error("Unauthorized");
+    }
     const body = await res.json().catch(() => ({}));
     const b = body as { error?: string; details?: string };
     // Include details if present (e.g. "Extraction failed: <root cause>")

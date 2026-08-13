@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     const userId  = (session?.user as { id?: string } | undefined)?.id;
-    if (!userId) {
+    if (!userId || !mongoose.isValidObjectId(userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
